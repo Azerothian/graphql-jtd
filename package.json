@@ -1,5 +1,5 @@
 {
-  "name": "@vostro/graphql-jtd",
+  "name": "@azerothian/graphql-jtd",
   "version": "2.0.0",
   "main": "lib/index.js",
   "scripts": {
