@@ -28,6 +28,11 @@ test("jtd schema - basic types - input and result", async() => {
 });
 
 
+test("jtd schema - basic types - boolean", async() => {
+  const rootSchema = generateJDTFromSchema(demoSchema);
+  expect(rootSchema).toBeDefined();
+  expect(rootSchema.optionalProperties?.Query?.optionalProperties?.testBoolean?.type).toBe(JtdType.BOOLEAN);
+});
 
 test("jtd schema - custom types - no resolver", async() => {
   const rootSchema = generateJDTFromSchema(customSchema);

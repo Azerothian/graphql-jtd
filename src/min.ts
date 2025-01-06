@@ -43,6 +43,9 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
       case "Float":
         typeDef = { t: JtdMinType.FLOAT32 };
         break;
+      case "Boolean":
+        typeDef = { t: JtdMinType.BOOLEAN };
+        break;
       default:
         const customScalarType = customScalarResolver(type);
         if (customScalarType) {

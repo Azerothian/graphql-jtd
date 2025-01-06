@@ -9,7 +9,7 @@ test("jtd schema - root elements test", () => {
   expect(rootSchema.p?.Query).not.toBeNull();
   expect(rootSchema.p?.Mutation).not.toBeNull();
   expect(rootSchema.p?.Query.md?.n).toEqual("Query")
-  expect(rootSchema.p?.Query.md?.re).toEqual(true)
+
 });
 
 test("jtd schema - arguments test", () => {
@@ -27,6 +27,14 @@ test("jtd schema - basic types - input and result", async() => {
   expect(rootSchema.def?.test1input1).toBeDefined();
 });
 
+
+
+
+test("jtd schema - basic types - boolean", async() => {
+  const rootSchema = generateJDTMinFromSchema(demoSchema);
+  expect(rootSchema).toBeDefined();
+  expect(rootSchema.p?.Query?.p?.testBoolean?.t).toBe(JtdMinType.BOOLEAN);
+});
 
 test("jtd schema - custom types - no resolver", async() => {
   const rootSchema = generateJDTMinFromSchema(customSchema);

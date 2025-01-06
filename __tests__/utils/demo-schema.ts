@@ -7,6 +7,7 @@ enum testEnum1 {
   option3
 }
 input test1input1 {
+
   t1i1field1: ID!
   t1i1field2: String!
   t1i1field3: Int!
@@ -23,6 +24,7 @@ type test1Result {
 type Query {
   queryTest1(arg1: String!, arg2: [test1input1]): test1Result!
   queryTest2(arg1: testEnum1!, arg2: [test1input1]): test1Result
+  testBoolean: Boolean
 }
 type Mutation {
   mutationTest1(arg1: String!, arg2: [test1input1]): test1Result
