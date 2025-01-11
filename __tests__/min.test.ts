@@ -55,3 +55,11 @@ test("jtd schema - custom types - with custom resolver", async() => {
   expect(rootSchema.p?.Query?.p?.hello?.t).toBe(JtdMinType.STRING);
   expect(rootSchema.p?.Query?.p?.date?.t).toBe(JtdMinType.TIMESTAMP);
 });
+
+test("jtd schema - id type", async() => {
+  const rootSchema = generateJDTMinFromSchema(customSchema);
+  expect(rootSchema).toBeDefined();
+  expect(rootSchema.p?.Query?.p?.id?.t).toBe(JtdMinType.STRING);
+  expect(rootSchema.p?.Query?.p?.id?.md?.id).toBe(true);
+  expect(rootSchema.p?.Query?.p?.hello?.md).toBeUndefined();
+});

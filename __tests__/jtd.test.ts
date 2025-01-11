@@ -53,3 +53,12 @@ test("jtd schema - custom types - with custom resolver", async() => {
   expect(rootSchema.optionalProperties?.Query?.optionalProperties?.hello?.type).toBe(JtdType.STRING);
   expect(rootSchema.optionalProperties?.Query?.optionalProperties?.date?.type).toBe(JtdType.TIMESTAMP);
 });
+
+
+test("jtd schema - id type", async() => {
+  const rootSchema = generateJDTFromSchema(customSchema);
+  expect(rootSchema).toBeDefined();
+  expect(rootSchema.optionalProperties?.Query?.optionalProperties?.id?.type).toBe(JtdType.STRING);
+  expect(rootSchema.optionalProperties?.Query?.optionalProperties?.id?.metadata?.id).toBe(true);
+  expect(rootSchema.optionalProperties?.Query?.optionalProperties?.hello?.metadata).toBeUndefined();
+});

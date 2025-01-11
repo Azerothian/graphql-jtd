@@ -38,6 +38,8 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
         typeDef = { type: JtdType.INT32 };
         break;
       case "ID":
+        typeDef = { type: JtdType.STRING, metadata: { id: true } };
+        break;
       case "String":
         typeDef = { type: JtdType.STRING };
         break;
@@ -165,7 +167,7 @@ export function generateJTDFromTypes(types: IJtd[], metadata = {}) {
   const definitions = types
     .filter((t) => !t.metadata?.rootElement)
     .reduce((o, t) => {
-      if(t.metadata) {
+      if (t.metadata?.name) {
         o[t.metadata?.name] = t;
       }
       return o;
@@ -173,7 +175,7 @@ export function generateJTDFromTypes(types: IJtd[], metadata = {}) {
   const optionalProperties = types
     .filter((t) => t.metadata?.rootElement)
     .reduce((o, t) => {
-      if(t.metadata) {
+      if (t.metadata?.name) {
         o[t.metadata?.name] = t;
       }
       return o;

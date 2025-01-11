@@ -1,4 +1,4 @@
-import { GraphQLSchema, GraphQLObjectType, GraphQLString } from "graphql";
+import { GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLID } from "graphql";
 import GQLTDate from "@vostro/graphql-types/lib/date";
 export default new GraphQLSchema({
   query: new GraphQLObjectType({
@@ -11,6 +11,12 @@ export default new GraphQLSchema({
       date: {
         type: GQLTDate,
         resolve: () => new Date()
+      },
+      id: {
+        type: GraphQLID,
+        resolve: () => {
+          return "1234";
+        }
       }
     })
   })

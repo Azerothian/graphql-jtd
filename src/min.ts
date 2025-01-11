@@ -37,6 +37,8 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
         typeDef = { t: JtdMinType.INT32 };
         break;
       case "ID":
+        typeDef = { t: JtdMinType.STRING, md: { id: true } };
+        break;
       case "String":
         typeDef = { t: JtdMinType.STRING };
         break;
@@ -73,6 +75,10 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   if (required) {
     typeDef.rq = true;
   }
+  // if (typeName === "ID") {
+  //   typeDef.id = true;
+  // }
+
   // if(obj?.args) {
   //     typeDef.arguments = Object.keys(obj.args).reduce((o, a) => {
   //     if(obj?.args) {
@@ -154,7 +160,7 @@ export function generateJTDMinFromTypes(types: IJtdMin[], metadata = {}) {
   const definitions = types
     .filter((t) => !t.md?.re) // filter rootElement
     .reduce((o, t) => {
-      if(t.md) {
+      if(t.md?.n) {
         o[t.md?.n] = t;
       }
       return o;
@@ -162,7 +168,7 @@ export function generateJTDMinFromTypes(types: IJtdMin[], metadata = {}) {
   const optionalProperties = types
     .filter((t) => t.md?.re)
     .reduce((o, t) => {
-      if(t.md) {
+      if(t.md?.n) {
         o[t.md?.n] = t;
       }
       return o;
