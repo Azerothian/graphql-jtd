@@ -1,5 +1,5 @@
 import logger from "./utils/logger";
-import {GraphQLFieldConfig, GraphQLFieldConfigArgumentMap, GraphQLInputObjectType} from "graphql";
+import {GraphQLFieldConfig, GraphQLFieldConfigArgumentMap, GraphQLInputObjectType, GraphQLInputObjectTypeConfig, GraphQLObjectTypeConfig} from "graphql";
 import {
   GraphQLSchema,
   GraphQLObjectType,
@@ -11,11 +11,12 @@ import {
 } from "graphql";
 import { IJtdMin, IJtdMinDict, IJtdMinRoot, JtdMinType } from "@vostro/jtd-types";
 import { GraphQLSchemaNormalizedConfig } from "graphql/type/schema";
+import { JtdCurrentObject, generateJTDMinOptions } from ".";
 
-type CustomScalerResolver =  (type: GraphQLType) => JtdMinType | undefined;
 
 
-function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerResolver) : IJtdMin {
+
+function createType(fieldType: GraphQLType, name: string, currentObject: JtdCurrentObject, options?: generateJTDMinOptions) : IJtdMin {
   // const fieldType = !(field as GraphQLFieldConfig<any, any, any>).type ? field as GraphQLType : (field as GraphQLFieldConfig<any, any, any>).type;
   const required = fieldType instanceof GraphQLNonNull;
   let type: GraphQLType;
@@ -31,7 +32,9 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   }
   let typeName = type.toString();
   let typeDef = {} as IJtdMin;
+  let isScaler = false;
   if (type instanceof GraphQLScalarType) {
+    isScaler = true;
     switch (typeName) {
       case "Int":
         typeDef = { t: JtdMinType.INT32 };
@@ -49,7 +52,10 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
         typeDef = { t: JtdMinType.BOOLEAN };
         break;
       default:
-        const customScalarType = customScalarResolver(type);
+        let customScalarType;
+        if(options?.customScalarResolver) {
+          customScalarType = options?.customScalarResolver(name, type, currentObject);
+        }
         if (customScalarType) {
           typeDef = { t: customScalarType };
         } else {
@@ -75,7 +81,15 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   if (required) {
     typeDef.rq = true;
   }
-  // if (typeName === "ID") {
+
+  if(options?.scalarPostProcessor) {
+    const tmpDef = options.scalarPostProcessor(typeDef, name, type, currentObject, isScaler);
+    if(tmpDef) {
+      typeDef = tmpDef
+    }
+
+  }
+      // if (typeName === "ID") {
   //   typeDef.id = true;
   // }
 
@@ -90,20 +104,25 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   return typeDef;
 }
 
-export function createArguments(argMap: GraphQLFieldConfigArgumentMap | undefined, customScalarResolver: CustomScalerResolver) : IJtdMinDict | undefined {
+export function createArguments(argMap: GraphQLFieldConfigArgumentMap | undefined, currentObject: JtdCurrentObject, options?: generateJTDMinOptions) : IJtdMinDict | undefined {
   if (argMap) {
     const keys = Object.keys(argMap);
     if(keys.length > 0) {
       return keys.reduce((o, k) => {
-        o[k] = createType(argMap[k].type, customScalarResolver);
+        o[k] = createType(argMap[k].type, k, currentObject, options);
         return o;
       }, {} as IJtdMinDict);
     }
   }
   return undefined;
 }
-function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaConfig: GraphQLSchemaNormalizedConfig, customScalarResolver: CustomScalerResolver) {
+function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaConfig: GraphQLSchemaNormalizedConfig, options?: generateJTDMinOptions) {
   const objectConfig = obj.toConfig();
+  const objType = obj[Symbol.toStringTag];
+  const currentObject = {
+    type: objType,
+    data: objectConfig,
+  }
   const metadata = {
     n: objectConfig.name,
   } as any;
@@ -113,9 +132,9 @@ function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaCon
   return Object.keys(objectConfig.fields).reduce(
     (o, k) => {
       const field = objectConfig.fields[k];
-      const typeDef = createType(field.type, customScalarResolver);
+      const typeDef = createType(field.type, k, currentObject, options);
       if (obj instanceof GraphQLObjectType) {
-        typeDef.args = createArguments((field as GraphQLFieldConfig<any, any,any>).args, customScalarResolver);
+        typeDef.args = createArguments((field as GraphQLFieldConfig<any, any,any>).args, currentObject, options);
       }
       if (!o.p) {
         o.p = {};
@@ -130,7 +149,7 @@ function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaCon
   );
 }
 
-export function createTypes(schemaConfig: GraphQLSchemaNormalizedConfig, customScalarResolver: CustomScalerResolver) {
+export function createTypes(schemaConfig: GraphQLSchemaNormalizedConfig, options?: generateJTDMinOptions) {
   const enums = schemaConfig.types.filter(
     (f) => f instanceof GraphQLEnumType && f.name.indexOf("__") !== 0
   ) as GraphQLEnumType[];
@@ -142,8 +161,8 @@ export function createTypes(schemaConfig: GraphQLSchemaNormalizedConfig, customS
   ) as GraphQLInputObjectType[]
 
   return [
-    ...inputs.map((i) => objectMapper(i, schemaConfig, customScalarResolver)),
-    ...objects.map((o) => objectMapper(o, schemaConfig, customScalarResolver)),
+    ...inputs.map((i) => objectMapper(i, schemaConfig, options)),
+    ...objects.map((o) => objectMapper(o, schemaConfig, options)),
     ...enums.map((enumType) => {
       return {
         md: {
@@ -164,7 +183,7 @@ export function generateJTDMinFromTypes(types: IJtdMin[], metadata = {}) {
         o[t.md?.n] = t;
       }
       return o;
-    }, {} as IJtdMinDict)
+    }, {} as IJtdMinDict);
   const optionalProperties = types
     .filter((t) => t.md?.re)
     .reduce((o, t) => {
@@ -172,7 +191,7 @@ export function generateJTDMinFromTypes(types: IJtdMin[], metadata = {}) {
         o[t.md?.n] = t;
       }
       return o;
-    }, {} as IJtdMinDict)
+    }, {} as IJtdMinDict);
   return {
     md: metadata,
     def: definitions,
@@ -180,14 +199,15 @@ export function generateJTDMinFromTypes(types: IJtdMin[], metadata = {}) {
   } as IJtdMinRoot
 }
 
-export function generateJDTMinFromSchema(schema: GraphQLSchema, customScalarResolver: CustomScalerResolver = () => undefined) {
+export function generateJDTMinFromSchema(schema: GraphQLSchema, options?: generateJTDMinOptions) {
   const schemaConfig = schema.toConfig();
-  const types = createTypes(schemaConfig, customScalarResolver);
+  const types = createTypes(schemaConfig, options);
   return generateJTDMinFromTypes(types, {
     mutation: schemaConfig.mutation?.name,
     query: schemaConfig.query?.name,
   });
 }
+
 
 
 // export function isJTDScalarType(typeDef: IJtdMin) {

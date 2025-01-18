@@ -1,5 +1,5 @@
 import logger from "./utils/logger";
-import {GraphQLFieldConfig, GraphQLFieldConfigArgumentMap, GraphQLInputObjectType} from "graphql";
+import {GraphQLFieldConfig, GraphQLFieldConfigArgumentMap, GraphQLInputObjectType, GraphQLInputObjectTypeConfig, GraphQLObjectTypeConfig} from "graphql";
 import {
   GraphQLSchema,
   GraphQLObjectType,
@@ -9,7 +9,7 @@ import {
   GraphQLEnumType,
   GraphQLList,
 } from "graphql";
-import { IJtd, IJtdDict, IJtdRoot, JtdType } from '@vostro/jtd-types';
+import { IJtd, IJtdDict, IJtdMin, IJtdRoot, JtdMinType, JtdType } from '@vostro/jtd-types';
 import { GraphQLSchemaNormalizedConfig } from "graphql/type/schema";
 
 import {generateJDTMinFromSchema as gjmfs} from "./min"
@@ -213,3 +213,18 @@ export function generateJDTFromSchema(schema: GraphQLSchema, customScalarResolve
 //   return false;
 // }
 export const generateJDTMinFromSchema = gjmfs;
+
+
+export interface JtdCurrentObject {
+  type: string,
+  data: GraphQLInputObjectTypeConfig | GraphQLObjectTypeConfig<any, any>
+}
+
+
+export type generateJTDMinOptions = {
+  customScalarResolver?: (fieldName: string, fieldType: GraphQLType, currentObject: JtdCurrentObject) => JtdMinType | undefined;
+  scalarPostProcessor?: (typeDef: IJtdMin, fieldName: string, fieldType: GraphQLType, currentObject: JtdCurrentObject, isScalarType: boolean) => IJtdMin | undefined
+}
+
+// export interface iJtdType {} 
+// export interface iJtd {}

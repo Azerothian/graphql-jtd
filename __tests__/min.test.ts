@@ -4,6 +4,9 @@ import customSchema from "./utils/custom-schema";
 import { JtdMinType } from "@vostro/jtd-types";
 
 
+import { buildSchema } from "graphql";
+import exp from "constants";
+
 test("jtd schema - root elements test", () => {
   const rootSchema = generateJDTMinFromSchema(demoSchema);
   expect(rootSchema.p?.Query).not.toBeNull();
@@ -45,11 +48,13 @@ test("jtd schema - custom types - no resolver", async() => {
 
 
 test("jtd schema - custom types - with custom resolver", async() => {
-  const rootSchema = generateJDTMinFromSchema(customSchema, (type) => {
-    if (type.toString() === "GQLTDate") {
-      return JtdMinType.TIMESTAMP;
+  const rootSchema = generateJDTMinFromSchema(customSchema, {
+    customScalarResolver: (name, type) => {
+      if (type.toString() === "GQLTDate") {
+        return JtdMinType.TIMESTAMP;
+      }
+      return undefined
     }
-    return undefined
   });
   expect(rootSchema).toBeDefined();
   expect(rootSchema.p?.Query?.p?.hello?.t).toBe(JtdMinType.STRING);
@@ -62,4 +67,60 @@ test("jtd schema - id type", async() => {
   expect(rootSchema.p?.Query?.p?.id?.t).toBe(JtdMinType.STRING);
   expect(rootSchema.p?.Query?.p?.id?.md?.id).toBe(true);
   expect(rootSchema.p?.Query?.p?.hello?.md).toBeUndefined();
+});
+
+
+
+test("jtd schema - custom types - scalarPostProcessor", async() => {
+
+
+  const testSchema = buildSchema(`
+    type PageInfo {
+      hasNextPage: Boolean
+      hasPreviousPage: Boolean
+      startCursor: String
+      endCursor: String
+    }
+    
+    
+    type Parent {
+      id: ID
+      children: ChildEdge
+    }
+    
+    type ChildEdge {
+      edges: [ChildNode]
+      pageInfo: PageInfo
+    }
+    type ChildNode {
+      node: Child
+    }
+    type Child {
+      id: ID
+      parent: Parent
+      parentId: ID
+    }
+    type Models {
+      children: [ChildEdge]
+    }
+    type Query {
+      models: Models
+    }
+    `, {
+      
+    });
+    
+    
+
+
+  const rootSchema = generateJDTMinFromSchema(testSchema, {
+    scalarPostProcessor: (typeDef, name, type, currentObject, isScalarType) => {
+      if(name === "parentId" && typeDef.md) {
+        typeDef.md = {...typeDef.md, n: "parent"};
+      }
+      return typeDef;
+    }
+  });
+  expect(rootSchema).toBeDefined();
+  expect(rootSchema?.def?.Child?.p?.parentId?.md?.n).toEqual("parent");
 });
