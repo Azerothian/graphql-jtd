@@ -124,3 +124,26 @@ test("jtd schema - custom types - scalarPostProcessor", async() => {
   expect(rootSchema).toBeDefined();
   expect(rootSchema?.def?.Child?.p?.parentId?.md?.n).toEqual("parent");
 });
+
+
+test("jtd schema - test required input", async() => {
+  const testSchema = buildSchema(`
+    input ChildInput {
+      parentId: ID!
+    }
+    type Child {
+      id: ID
+      parentId: ID!
+    }
+
+    type Mutation {
+      crateChild(input: ChildInput): Child
+    }
+    `, {
+     
+    });
+
+  const rootSchema = generateJDTMinFromSchema(testSchema);
+  expect(rootSchema).toBeDefined();
+  expect(rootSchema?.def?.ChildInput?.p?.parentId?.rq).toEqual(true);
+});

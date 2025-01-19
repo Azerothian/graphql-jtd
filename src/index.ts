@@ -16,7 +16,7 @@ import {generateJDTMinFromSchema as gjmfs} from "./min"
 
 type CustomScalerResolver =  (type: GraphQLType) => JtdType | undefined;
 
-function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerResolver) {
+function createType(fieldType: GraphQLType, name: string, currentObject: JtdCurrentObject, options?: generateJTDOptions) {
   // const fieldType = !(field as GraphQLFieldConfig<any, any, any>).type ? field as GraphQLType : (field as GraphQLFieldConfig<any, any, any>).type;
   const required = fieldType instanceof GraphQLNonNull;
   let type: GraphQLType;
@@ -32,7 +32,9 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   }
   let typeName = type.toString();
   let typeDef = {} as IJtd;
+  let isScaler = false;
   if (type instanceof GraphQLScalarType) {
+    isScaler = true;
     switch (typeName) {
       case "Int":
         typeDef = { type: JtdType.INT32 };
@@ -50,7 +52,10 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
         typeDef = { type: JtdType.BOOLEAN };
         break;
       default:
-        const customScalarType = customScalarResolver(type);
+        let customScalarType;
+        if(options?.customScalarResolver) {
+          customScalarType = options?.customScalarResolver(name, type, currentObject);
+        }
         if (customScalarType) {
           typeDef = { type: customScalarType };
         } else {
@@ -78,6 +83,14 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   } else {
     typeDef.nullable = true;
   }
+  
+  if(options?.scalarPostProcessor) {
+    const tmpDef = options.scalarPostProcessor(typeDef, name, type, currentObject, isScaler);
+    if(tmpDef) {
+      typeDef = tmpDef
+    }
+
+  }
   // if(obj?.args) {
   //     typeDef.arguments = Object.keys(obj.args).reduce((o, a) => {
   //     if(obj?.args) {
@@ -89,20 +102,25 @@ function createType(fieldType: GraphQLType, customScalarResolver: CustomScalerRe
   return typeDef;
 }
 
-export function createArguments(argMap: GraphQLFieldConfigArgumentMap | undefined, customScalarResolver: CustomScalerResolver) : IJtdDict | undefined {
+export function createArguments(argMap: GraphQLFieldConfigArgumentMap | undefined, currentObject: JtdCurrentObject, options?: generateJTDOptions) : IJtdDict | undefined {
   if (argMap) {
     const keys = Object.keys(argMap);
     if(keys.length > 0) {
       return keys.reduce((o, k) => {
-        o[k] = createType(argMap[k].type, customScalarResolver);
+        o[k] = createType(argMap[k].type, k, currentObject, options);
         return o;
       }, {} as IJtdDict);
     }
   }
   return undefined;
 }
-function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaConfig: GraphQLSchemaNormalizedConfig, customScalarResolver: CustomScalerResolver) {
+function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaConfig: GraphQLSchemaNormalizedConfig, options?: generateJTDOptions) {
   const objectConfig = obj.toConfig();
+  const objType = obj[Symbol.toStringTag];
+  const currentObject = {
+    type: objType,
+    data: objectConfig,
+  }
   const metadata = {
     name: objectConfig.name,
   } as any;
@@ -112,9 +130,9 @@ function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaCon
   return Object.keys(objectConfig.fields).reduce(
     (o, k) => {
       const field = objectConfig.fields[k];
-      const typeDef = createType(field.type, customScalarResolver);
+      const typeDef = createType(field.type, k, currentObject, options);
       if (obj instanceof GraphQLObjectType) {
-        typeDef.arguments = createArguments((field as GraphQLFieldConfig<any, any,any>).args, customScalarResolver);
+        typeDef.arguments = createArguments((field as GraphQLFieldConfig<any, any,any>).args, currentObject, options);
       }
       if (!typeDef.nullable) {
         if (!o.properties) {
@@ -137,7 +155,7 @@ function objectMapper(obj: GraphQLObjectType | GraphQLInputObjectType, schemaCon
   );
 }
 
-export function createTypes(schemaConfig: GraphQLSchemaNormalizedConfig, customScalarResolver: CustomScalerResolver) {
+export function createTypes(schemaConfig: GraphQLSchemaNormalizedConfig, options?: generateJTDOptions) {
   const enums = schemaConfig.types.filter(
     (f) => f instanceof GraphQLEnumType && f.name.indexOf("__") !== 0
   ) as GraphQLEnumType[];
@@ -149,8 +167,8 @@ export function createTypes(schemaConfig: GraphQLSchemaNormalizedConfig, customS
   ) as GraphQLInputObjectType[]
 
   return [
-    ...inputs.map((i) => objectMapper(i, schemaConfig, customScalarResolver)),
-    ...objects.map((o) => objectMapper(o, schemaConfig, customScalarResolver)),
+    ...inputs.map((i) => objectMapper(i, schemaConfig, options)),
+    ...objects.map((o) => objectMapper(o, schemaConfig, options)),
     ...enums.map((enumType) => {
       return {
         metadata: {
@@ -187,31 +205,15 @@ export function generateJTDFromTypes(types: IJtd[], metadata = {}) {
   } as IJtdRoot
 }
 
-export function generateJDTFromSchema(schema: GraphQLSchema, customScalarResolver: CustomScalerResolver = () => undefined) {
+export function generateJDTFromSchema(schema: GraphQLSchema, options?: generateJTDOptions) {
   const schemaConfig = schema.toConfig();
-  const types = createTypes(schemaConfig, customScalarResolver);
+  const types = createTypes(schemaConfig, options);
   return generateJTDFromTypes(types, {
     mutation: schemaConfig.mutation?.name,
     query: schemaConfig.query?.name,
   });
 }
-// export function isJTDScalarType(typeDef: IJtd) {
-//   switch(typeDef.type) {
-//     case JtdType.BOOLEAN:
-//     case JtdType.FLOAT32:
-//     case JtdType.FLOAT64:
-//     case JtdType.INT16:
-//     case JtdType.INT32:
-//     case JtdType.INT8:
-//     case JtdType.STRING:
-//     case JtdType.TIMESTAMP:
-//     case JtdType.UINT16:
-//     case JtdType.UINT32:
-//     case JtdType.UINT8:
-//       return true;
-//   }
-//   return false;
-// }
+
 export const generateJDTMinFromSchema = gjmfs;
 
 
@@ -220,6 +222,10 @@ export interface JtdCurrentObject {
   data: GraphQLInputObjectTypeConfig | GraphQLObjectTypeConfig<any, any>
 }
 
+export type generateJTDOptions = {
+  customScalarResolver?: (fieldName: string, fieldType: GraphQLType, currentObject: JtdCurrentObject) => JtdType | undefined;
+  scalarPostProcessor?: (typeDef: IJtd, fieldName: string, fieldType: GraphQLType, currentObject: JtdCurrentObject, isScalarType: boolean) => IJtd | undefined
+}
 
 export type generateJTDMinOptions = {
   customScalarResolver?: (fieldName: string, fieldType: GraphQLType, currentObject: JtdCurrentObject) => JtdMinType | undefined;

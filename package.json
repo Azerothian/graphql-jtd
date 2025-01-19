@@ -9,7 +9,7 @@
     "test": "jest"
   },
   "devDependencies": {
-    "@azerothian/jtd-types": "^2.0.0",
+    "@azerothian/jtd-types": "^3.0.0",
     "@tsconfig/node22": "^22.0.0",
     "@tsconfig/recommended": "^1.0.8",
     "@types/debug": "^4.1.12",
